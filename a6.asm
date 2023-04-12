@@ -4,7 +4,7 @@
 define(argc_r, w19)
 define(argv_r, x20)
 define(temp_r, w23)
-define(pn, x24)
+define(n_read, x24)
 define(fd, w25)
 
 define(openat, 56)
@@ -20,7 +20,7 @@ buf_s = 16
 err:    .string "Invalid number of arguments\n"  
 file_open_err: .string "Cannot open file!\n"
 file_open: .string "Opened File: %s\n"
-
+file_close_str: .string "Closed File: %s\n"
         .text
         .balign 4
         .global main
@@ -36,7 +36,7 @@ main:   stp     x29, x30, [sp, alloc]!
         mov     temp_r, 1
 
         mov     w0, FDCWD
-        ldr     x1, [argv_r, 8]
+        ldr     x1, [argv_r, temp_r, SXTW 3]
 
         mov     w2, 0       // Read Only
         mov     w3, 0       // Not used
@@ -54,25 +54,38 @@ main:   stp     x29, x30, [sp, alloc]!
         b       exit
 
 open:
-        adrp    x0, file_open
-        add     x0, x0, :lo12:file_open
-        ldr     x1, [argv_r, 8]     
-        bl      printf
-read:
         // fd in in w0
         mov     fd, w0
+
+        adrp    x0, file_open
+        add     x0, x0, :lo12:file_open
+        ldr     x1, [argv_r, temp_r, SXTW 3]     
+        bl      printf
+read:
+        mov     w0, fd
         add     x1, x29, buf_s
         mov     x2, buf_size
         mov     x8, 63
         svc     0
 
         // n_read is in x0
+        mov     n_read, x0
+        cmp     n_read, buf_size
+        b.ne    file_close
+        
+
+        // Ready to read next 8 bytes
+        b       read
 
 file_close:
         mov     w0, fd
         mov     x8, close
         svc     0
         // status is in w0
+        adrp    x0, file_close_str
+        add     x0, x0, :lo12:file_close_str
+        ldr     x1, [argv_r, 8]     
+        bl      printf
         b       exit
 
 err_exit:
